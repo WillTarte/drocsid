@@ -8,3 +8,5 @@ edition = "2018"
 
 [dependencies]
 crossbeam = "0.7.3"
+tokio = {version="0.2.16", features=["full"]}
+rand = "0.7.3"
