@@ -1,6 +1,8 @@
 use crate::drocsid_client::client::Client;
 use crossbeam::channel;
-use tokio::sync::mpsc;
+use std::collections::HashMap;
+use serde::{Serialize, Deserialize};
+use std::sync::mpsc;
 
 pub struct Server {
     //listener: TcpListener,
@@ -23,4 +25,10 @@ impl Server {
         self.clients.push(new);
         true
     }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Message {
+    headers: HashMap<String, String>,
+    pub(crate) content: String
 }

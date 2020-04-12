@@ -1,10 +1,10 @@
-use std::net::{TcpStream};
 use crossbeam::channel;
-use tokio::sync::mpsc;
+use std::net::TcpStream;
+use std::sync::mpsc;
 
 pub struct Client{
     receiver: channel::Receiver<String>,
-    sender: mpsc::Sender<String>,
+    pub(crate) sender: mpsc::Sender<String>,
     pub(crate) stream: TcpStream
 }
 
@@ -14,6 +14,16 @@ impl Client {
             receiver,
             sender,
             stream
+        }
+    }
+}
+
+impl Clone for Client {
+    fn clone(&self) -> Self {
+        Client {
+            receiver: self.receiver.clone(),
+            sender: self.sender.clone(),
+            stream: self.stream.try_clone().unwrap()
         }
     }
 }
