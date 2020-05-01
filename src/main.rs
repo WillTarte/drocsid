@@ -1,9 +1,10 @@
-#![feature(async_closure)]
-
 extern crate crossbeam;
+#[macro_use]
+extern crate log;
 
 mod drocsid_client;
 mod drocsid_server;
+
 use drocsid_client::client::Client;
 use crossbeam::channel::{unbounded};
 use crate::drocsid_server::server::{Server, Message, MessageType, MessageEmitter};
@@ -12,24 +13,39 @@ use threadpool::ThreadPool;
 use std::net::{TcpListener};
 use std::io::{Read, Write};
 use std::sync::mpsc;
+use log::{info, warn};
+use std::error::Error;
+use std::io;
 
 const ADDRESS: &str = "127.0.0.1:9001";
 
-fn process_conn(client: &mut Client ) {
+fn process_conn(client: &mut Client) {
     let mut buf: [u8; 1000] = [0 as u8; 1000];
 
-    let msg_size = client.stream.read(buf.borrow_mut()).unwrap();
-
-    if msg_size <= 0 {
-        return;
+    match client.stream.read(buf.borrow_mut()) {
+        Ok(ref size) => {
+            info!("read {} bytes", size);
+            if *size <= 0 as usize {
+                return;
+            }
+        }
+        Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => { /*do nothing*/ }
+        Err(err) => {
+            warn!("[process_conn - 33] {:?}", err);
+            return;
+        }
     }
-
-    let message: Message = serde_json::from_slice(buf.borrow_mut()).unwrap();
-    println!("{:?}", message);
-    client.sender.send(message);
+    match serde_json::from_slice(buf.borrow_mut()) {
+        Ok(message) => {
+            info!("{:?}", &message);
+            client.sender.send(message);
+        }
+        Err(err) => warn!("[process_conn - 42] {:?}", err)
+    }
 }
 
 fn main() -> () {
+    env_logger::init();
 
     let listener: TcpListener = TcpListener::bind(ADDRESS).expect("failed to listen");
     listener.set_nonblocking(true).expect("Cannot set non-blocking mode");
@@ -43,10 +59,10 @@ fn main() -> () {
         match listener.accept() {
             Ok((socket, addr)) => {
                 socket.set_nonblocking(true).expect("Could not set remote connection to non-blocking");
-                println!("New client!");
-                server.new_client(Client::new(client_receiver.clone(),client_sender.clone(), socket));
-            },
-            Err(err) => eprintln!("Could not accept incoming connection")
+                info!("New client!");
+                server.new_client(Client::new(client_receiver.clone(), client_sender.clone(), socket));
+            }
+            Err(err) => warn!("Could not accept incoming connection")
         }
 
         for client in server.clients.iter_mut() {
@@ -54,32 +70,38 @@ fn main() -> () {
             pool.execute(move || process_conn(&mut client_clone))
         }
 
-        while let result = server_receiver.try_recv() {
+        while let result = server.server_receiver.try_recv() {
             match result {
                 Ok(msg) => {
                     match msg.msg_type {
                         MessageType::ChatMessage => {
                             for client in server.clients.iter_mut() {
                                 match msg.emitter {
-                                    MessageEmitter::Client(ref id)=> {
-                                        if id == client.id {
-                                          //does not send message to itself
+                                    MessageEmitter::Client(ref id) => {
+                                        if *id == client.identity.username {
+                                            //does not send message to itself
                                             ()
                                         } else {
                                             client.stream.write(serde_json::to_string(&msg).unwrap().as_bytes());
                                         };
-                                    },
-                                    MessageEmitter::Server(ref id) => {}
+                                    }
+                                    MessageEmitter::Server(ref id) => { /*TODO*/ }
                                 }
                             }
                         }
+                        MessageType::AuthenticateIdentity => {
+                            match msg.emitter {
+                                MessageEmitter::Server(uuid) => { /*TODO*/ }
+                                MessageEmitter::Client(uuid) => { /*TODO*/ }
+                            }
+                        }
                     }
-                },
-                Err(err) => {},
+                }
+                Err(err) => {
+                    warn!("[main - 99] {:?}", err);
+                    break;
+                }
             }
-    }
-
-
-
+        }
     }
 }

@@ -2,15 +2,15 @@ use crate::drocsid_client::client::Client;
 use crossbeam::channel;
 use serde::{Serialize, Deserialize};
 use std::sync::mpsc;
+use uuid::Uuid;
 
-pub struct Server<'a> {
-    //listener: TcpListener,
+pub struct Server {
     server_sender: channel::Sender<String>, // mpmc sender
     pub(crate) server_receiver: mpsc::Receiver<Message>, // mpsc receiver
-    pub(crate) clients: Vec<Client<'a>>
+    pub(crate) clients: Vec<Client>
 }
 
-impl Server<'_> {
+impl Server {
     pub fn new(server_sender: channel::Sender<String>, server_receiver: mpsc::Receiver<Message>) -> Self {
         Server {
             //listener,
@@ -20,7 +20,7 @@ impl Server<'_> {
         }
     }
 
-    pub fn new_client(&mut self, new: Client<'_>) -> bool {
+    pub fn new_client(&mut self, new: Client) -> bool {
         self.clients.push(new);
         true
     }
@@ -34,8 +34,8 @@ pub enum MessageType {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum MessageEmitter {
-    Client(String),
-    Server(String)
+    Client(Uuid),
+    Server(Uuid)
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

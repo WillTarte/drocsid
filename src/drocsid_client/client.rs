@@ -5,14 +5,14 @@ use crate::drocsid_server::server::Message;
 use uuid::Uuid;
 use serde::{Serialize, Deserialize};
 
-pub struct Client<'a>{
+pub struct Client {
     receiver: channel::Receiver<String>,
     pub(crate) sender: mpsc::Sender<Message>,
     pub(crate) stream: TcpStream,
-    pub(crate) identity: ClientIdentity<'a>
+    pub(crate) identity: ClientIdentity
 }
 
-impl Client<'_> {
+impl Client {
     pub fn new(receiver: channel::Receiver<String>, sender: mpsc::Sender<Message>, stream: TcpStream) -> Self {
         Client {
             receiver,
@@ -27,29 +27,29 @@ impl Client<'_> {
     }
 }
 
-impl Clone for Client<'_> {
+impl Clone for Client {
     fn clone(&self) -> Self {
         Client {
             receiver: self.receiver.clone(),
             sender: self.sender.clone(),
             stream: self.stream.try_clone().unwrap(),
-            identity: self.identity
+            identity: self.identity.clone()
         }
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Copy, Clone)]
-pub struct ClientIdentity<'a> {
-    username: Uuid,
-    nickname: &'a str
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ClientIdentity {
+    pub(crate) username: Uuid,
+    nickname: String
 }
 
-impl ClientIdentity<'_> {
+impl ClientIdentity {
     pub fn new_anonymous() -> Self {
         let uid = Uuid::new_v4();
         ClientIdentity {
             username: uid,
-            nickname: "anonymous"
+            nickname: String::from("anonymous")
         }
     }
 
