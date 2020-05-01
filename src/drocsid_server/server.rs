@@ -1,18 +1,17 @@
 use crate::drocsid_client::client::Client;
 use crossbeam::channel;
-use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
 use std::sync::mpsc;
 
-pub struct Server {
+pub struct Server<'a> {
     //listener: TcpListener,
     server_sender: channel::Sender<String>, // mpmc sender
-    server_receiver: mpsc::Receiver<String>, // mpsc receiver
-    pub(crate) clients: Vec<Client>
+    pub(crate) server_receiver: mpsc::Receiver<Message>, // mpsc receiver
+    pub(crate) clients: Vec<Client<'a>>
 }
 
-impl Server {
-    pub fn new(server_sender: channel::Sender<String>, server_receiver: mpsc::Receiver<String>) -> Self {
+impl Server<'_> {
+    pub fn new(server_sender: channel::Sender<String>, server_receiver: mpsc::Receiver<Message>) -> Self {
         Server {
             //listener,
             server_sender,
@@ -21,14 +20,27 @@ impl Server {
         }
     }
 
-    pub fn new_client(&mut self, new: Client) -> bool {
+    pub fn new_client(&mut self, new: Client<'_>) -> bool {
         self.clients.push(new);
         true
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Copy, Clone)]
+pub enum MessageType {
+    ChatMessage,
+    AuthenticateIdentity
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum MessageEmitter {
+    Client(String),
+    Server(String)
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Message {
-    headers: HashMap<String, String>,
-    pub(crate) content: String
+    pub(crate) msg_type: MessageType,
+    pub(crate) content: String,
+    pub(crate) emitter: MessageEmitter
 }
